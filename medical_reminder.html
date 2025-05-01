@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+<!-- 
+部署指南：
+1. 直接运行方法：
+   - 双击此HTML文件，浏览器会自动打开
+   - 或右键选择"打开方式"选择浏览器
+
+2. 使用Python简易服务器运行：
+   - 确保已安装Python
+   - 打开命令行，导航到此文件所在目录
+   - 运行命令: python -m http.server 8000
+   - 浏览器访问: http://localhost:8000/medical_reminder.html
+
+3. 数据存储说明：
+   - 所有数据保存在浏览器本地存储中
+   - 更换浏览器或电脑需要重新添加患者
+-->
+<head>
+  <meta charset="UTF-8">
+  <title>医疗康复智能提醒系统</title>
+  <style>
+    :root {
+      --primary: #4A90E2;
+      --secondary: #50E3C2;
+      --alert: #FF6B6B;
+      --bg: #f8faff;
+    }
+    body {
+      font-family: 'Helvetica Neue', '微软雅黑', sans-serif;
+      background: var(--bg);
+      margin: 0;
+      line-height: 1.6;
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 30px;
+    }
+    .header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 60px 40px;
+      border-radius: 20px;
+      margin-bottom: 40px;
+      box-shadow: 0 10px 30px rgba(74,144,226,0.15);
+    }
+    .form-card {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      margin-bottom: 40px;
+    }
+    input {
+      padding: 12px 20px;
+      border: 2px solid #e0e7ff;
+      border-radius: 8px;
+      width: 250px;
+      transition: all 0.3s;
+    }
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 8px rgba(74,144,226,0.2);
+    }
+    .add-btn {
+      background: var(--primary);
+      color: white;
+      padding: 12px 35px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .add-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(74,144,226,0.3);
+    }
+    .patient-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 25px;
+      margin-top: 30px;
+    }
+    .patient-card {
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.06);
+      transition: all 0.3s;
+      position: relative;
+    }
+    .patient-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    .status-bar {
+      height: 4px;
+      background: #e0e7ff;
+      border-radius: 2px;
+      margin: 15px 0;
+      overflow: hidden;
+    }
+    .progress {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      transition: width 0.8s ease;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 15px;
+      border-radius: 20px;
+      font-size: 0.9em;
+      margin-top: 10px;
+    }
+    .urgent {
+      background: var(--alert);
+      color: white;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .fullscreen-alert {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      background: rgba(255, 0, 0, 0.6);
+      animation: alertPulse 0.5s infinite alternate, shake 0.5s infinite;
+    }
+    @keyframes alertPulse {
+      0% { background-color: rgba(255, 0, 0, 0.6); }
+      25% { background-color: rgba(255, 0, 0, 0.9); }
+      50% { background-color: rgba(255, 0, 0, 0.6); }
+      75% { background-color: rgba(255, 0, 0, 0.9); }
+      100% { background-color: rgba(255, 0, 0, 0.6); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+      20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    .alert-content {
+      padding: 60px;
+      border-radius: 30px;
+      background: linear-gradient(45deg, #ff0000, #ff5252);
+      box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 style="font-size: 2.8em; margin:0;">医疗康复智能提醒</h1>
+      <p style="font-size: 1.2em; opacity: 0.9;">守护患者的每一个康复节点</p >
+    </div>
+
+    <div class="form-card">
+      <h2 style="color: var(--primary); margin-top:0;">添加新患者</h2>
+      <input type="text" id="patientName" placeholder="患者姓名">
+      <input type="date" id="insuranceDate">
+      <button class="add-btn" onclick="addPatient()">+ 添加记录</button>
+    </div>
+
+    <div class="patient-grid" id="patientList">
+      <!-- 动态生成患者卡片 -->
+    </div>
+  </div>
+
+  <!-- 全屏警报（保持原有功能优化视觉效果） -->
+  <div class="fullscreen-alert" id="fullscreenAlert">
+    <div class="alert-content">
+      <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" style="margin-bottom:30px;">
+        <path d="M12 2L2 22h20L12 2zM12 8v6M12 16h0"/>
+      </svg>
+      <h1 style="font-size:2.5em; margin:0 0 20px;" id="alertMessage"></h1>
+      <div style="display:flex; gap:20px; justify-content:center;">
+        <button class="add-btn" onclick="handleAlert('confirm')" style="background:white;color:var(--alert);">
+          确认处理
+        </button>
+        <button class="add-btn" onclick="handleAlert('snooze')" style="background:var(--secondary);">
+          稍后提醒
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 患者数据
+    let patients = JSON.parse(localStorage.getItem('patients')) || [];
+    
+    // 添加患者
+    function addPatient() {
+      const name = document.getElementById('patientName').value;
+      const insuranceDate = document.getElementById('insuranceDate').value;
+      
+      if (!name || !insuranceDate) {
+        showAlert('请输入患者姓名和医保日期');
+        return;
+      }
+      
+      // 计算阶段提醒日期（医保日期+30天）
+      const stage1 = new Date(insuranceDate);
+      stage1.setDate(stage1.getDate() + 30);
+      
+      const newPatient = {
+        name,
+        insuranceDate,
+        stage1: stage1.toISOString().split('T')[0],
+        stage2: new Date(stage1.getDate() + 30).toISOString().split('T')[0],
+        stage3: new Date(stage1.getDate() + 60).toISOString().split('T')[0],
+        stage90: new Date(stage1.getDate() + 87).toISOString().split('T')[0],
+        stage180: new Date(stage1.getDate() + 177).toISOString().split('T')[0],
+        reminders: {
+          email: false,
+          sms: false,
+          push: true,
+          customTime: '',
+          repeat: 'once',
+          notes: ''
+        },
+        progress: 0
+      };
+      
+      patients.push(newPatient);
+      try {
+        localStorage.setItem('patients', JSON.stringify(patients));
+        console.log('患者数据保存成功:', newPatient);
+      } catch (e) {
+        console.error('保存患者数据失败:', e);
+        showAlert('保存失败，请检查浏览器存储空间');
+        patients.pop(); // 回滚添加
+      }
+      renderList();
+      checkAlerts();
+    }
+    
+    // 渲染患者列表
+    function renderList() {
+      const list = document.getElementById('patientList');
+      list.innerHTML = patients.map((patient, index) => `
+        <div class="patient-card">
+          <h3 style="color: var(--primary); margin:0 0 10px;">${patient.name}</h3>
+          <div style="color:#666;font-size:0.9em;">
+            <div>📅 医保申请日：${patient.insuranceDate}</div>
+            <div style="margin:10px 0;">
+              ⏰ 阶段提醒：<span style="color:${new Date(patient.stage1) < new Date() ? 'var(--alert)' : 'var(--primary)'}">${patient.stage1}</span>
+            </div>
+            <div class="status-bar">
+              <div class="progress" style="width: ${calculateProgress(patient)}%"></div>
+            </div>
+            <div style="margin-top:15px; display:flex; justify-content:space-between;">
+              ${new Date(patient.stage1) < new Date() ? 
+                '<span class="badge urgent">需处理</span>' : 
+                '<span class="badge" style="background:var(--primary);color:white;">进行中</span>'}
+              <button class="add-btn" onclick="deletePatient(${index})" style="background:var(--alert); padding:6px 12px;">删除</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    // 删除患者
+    function deletePatient(index) {
+      if (confirm('确定要删除此患者记录吗？')) {
+        patients.splice(index, 1);
+        localStorage.setItem('patients', JSON.stringify(patients));
+        renderList();
+      }
+    }
+    
+    // 计算进度
+    function calculateProgress(patient) {
+      const now = new Date();
+      const start = new Date(patient.insuranceDate);
+      const end = new Date(patient.stage1);
+      
+      if (now >= end) return 100;
+      if (now <= start) return 0;
+      
+      const total = end - start;
+      const passed = now - start;
+      return Math.min(100, Math.round((passed / total) * 100));
+    }
+    
+    // 检查提醒
+    function checkAlerts() {
+      const now = new Date();
+      
+      // 检查90天提醒（最后3天）
+      const patients90 = patients.filter(p => {
+        const days90 = new Date(p.stage90);
+        const diffDays = Math.floor((days90 - now) / (1000 * 60 * 60 * 24));
+        return diffDays <= 3 && diffDays >= 0;
+      });
+      
+      // 检查180天提醒（最后3天）
+      const patients180 = patients.filter(p => {
+        const days180 = new Date(p.stage180);
+        const diffDays = Math.floor((days180 - now) / (1000 * 60 * 60 * 24));
+        return diffDays <= 3 && diffDays >= 0;
+      });
+      
+      // 合并所有需要提醒的患者
+      const urgentPatients = [
+        ...patients.filter(p => new Date(p.stage1) < now),
+        ...patients90,
+        ...patients180
+      ];
+      
+      if (urgentPatients.length > 0) {
+        urgentPatients.forEach(patient => {
+          const options = {
+            hour: '2-digit',
+            minute: '2-digit'
+          };
+          const timeStr = new Date().toLocaleTimeString('zh-CN', options);
+          
+          if (patient.reminders.push) {
+            let message = `⏰ ${timeStr} 康复提醒`;
+            if (patients90.includes(patient)) {
+              message = `⏰ ${timeStr} 90天康复关键期提醒`;
+            } else if (patients180.includes(patient)) {
+              message = `⏰ ${timeStr} 180天康复关键期提醒`;
+            }
+            showAlert(message, patient.name);
+          }
+        });
+      }
+    }
+    
+    // 显示全屏提醒
+    function showAlert(message, patientName = '') {
+      if (patientName) {
+        document.getElementById('alertMessage').innerHTML = `${message}<br><small>患者: ${patientName}</small>`;
+      } else {
+        document.getElementById('alertMessage').textContent = message;
+      }
+      document.getElementById('fullscreenAlert').style.display = 'flex';
+      
+      // 添加弹出动画效果
+      const alertContent = document.querySelector('.alert-content');
+      alertContent.style.animation = 'popIn 0.3s forwards';
+      
+
+    }
+    
+    // 处理提醒
+    function handleAlert(action) {
+      document.getElementById('fullscreenAlert').style.display = 'none';
+      
+      if (action === 'confirm') {
+        // 确认处理逻辑
+        renderList();
+      } else if (action === 'snooze') {
+        // 稍后提醒逻辑
+        setTimeout(checkAlerts, 30 * 60 * 1000); // 30分钟后再次检查
+      }
+    }
+    
+    // 初始化
+    document.getElementById('fullscreenAlert').style.display = 'none';
+    
+    // 页面加载时渲染已有患者数据
+    window.onload = function() {
+      renderList();
+      checkAlerts();
+      // 设置定时检查（每分钟检查一次）
+      setInterval(checkAlerts, 60 * 1000);
+    };
+    
+    // 添加持久化提醒状态
+    let alertShown = false;
+    
+    // 修改showAlert函数实现持续提醒
+    function showAlert(message, patientName = '') {
+      if (!alertShown) {
+        if (patientName) {
+          document.getElementById('alertMessage').innerHTML = `${message}<br><small>患者: ${patientName}</small>`;
+        } else {
+          document.getElementById('alertMessage').textContent = message;
+        }
+        document.getElementById('fullscreenAlert').style.display = 'flex';
+        alertShown = true;
+      }
+    }
+    
+    // 修改handleAlert函数重置提醒状态
+    function handleAlert(action) {
+      document.getElementById('fullscreenAlert').style.display = 'none';
+      alertShown = false;
+      
+      if (action === 'confirm') {
+        // 确认处理逻辑
+        renderList();
+      } else if (action === 'snooze') {
+        // 稍后提醒逻辑
+        setTimeout(checkAlerts, 30 * 60 * 1000); // 30分钟后再次检查
+      }
+    }
+  </script>
+</body>
+</html>
